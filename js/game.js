@@ -24,6 +24,12 @@ class GameManager {
     this.aiService = new AIService();
     this.renderer = new WorldRenderer();
     this.input = new GameInput(this);
+    this.daily = new DailyChallengeManager();
+
+    this._nearMissBlend = 0;
+    this._nearMissParticleCd = 0;
+    this._nearMissAudioCd = 0;
+    this._nearMissT = 0;
 
     this.maze = null;
     this.player = null;
@@ -71,6 +77,72 @@ class GameManager {
     this.difficulty = d;
   }
 
+  _getCoins() {
+    if (
+      typeof DailyChallengeManager !== "undefined" &&
+      DailyChallengeManager.getCoins
+    ) {
+      return DailyChallengeManager.getCoins();
+    }
+    return 0;
+  }
+
+  _coinsPerPellet() {
+    if (this.difficulty === "hard") return 2;
+    if (this.difficulty === "medium") return 1;
+    return 1;
+  }
+
+  /**
+   * When any enemy is within the near-miss band, smooth tension 0–1 slows simulation dt
+   * and drives subtle audio / particles / vignette.
+   */
+  _nearMissAdjustedDt(dt) {
+    const p = this.player;
+    const enemies = this.enemies;
+    if (!p || !enemies || enemies.length === 0) {
+      this._nearMissBlend += (0 - this._nearMissBlend) * 10 * dt;
+      return dt;
+    }
+
+    let minGap = Infinity;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      const hitR = p.r + e.r - 4;
+      const gap = d - hitR;
+      if (gap < minGap) minGap = gap;
+    }
+    if (!isFinite(minGap)) minGap = 80;
+
+    const zone = 40;
+    let tension = 0;
+    if (minGap < zone) {
+      tension = Math.max(0, Math.min(1, (zone - minGap) / zone));
+    }
+    this._nearMissBlend += (tension - this._nearMissBlend) * Math.min(1, 12 * dt);
+    this._nearMissT += dt * (6 * this._nearMissBlend + 0.4);
+
+    if (this._nearMissBlend > 0.38) {
+      this._nearMissParticleCd -= dt;
+      if (this._nearMissParticleCd <= 0) {
+        this.particles.spawnNearMiss(p.x, p.y);
+        this._nearMissParticleCd = 0.24;
+      }
+      this._nearMissAudioCd -= dt;
+      if (this._nearMissAudioCd <= 0 && this.audio.sfxNearMiss) {
+        this.audio.sfxNearMiss();
+        this._nearMissAudioCd = 0.34;
+      }
+    } else {
+      this._nearMissParticleCd = 0;
+      this._nearMissAudioCd = 0;
+    }
+
+    const slow = 1 - 0.14 * this._nearMissBlend;
+    return dt * Math.max(0.78, slow);
+  }
+
   _resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
@@ -86,6 +158,9 @@ class GameManager {
     if (ss !== null && ss !== "") {
       const sc = parseInt(ss, 10);
       if (!isNaN(sc) && sc >= 0) this.score = sc;
+    }
+    if (this.daily) {
+      this.daily.onScore(this.score);
     }
 
     this.lives = 3;
@@ -128,7 +203,12 @@ class GameManager {
 
     this.maze = new Maze(COLS, ROWS).generate();
     const spawn = this.maze.cellCenter(0, 0);
-    this.player = new Player(spawn.x, spawn.y);
+    const skinColor =
+      typeof DailyChallengeManager !== "undefined" &&
+      DailyChallengeManager.getSkinColorForPlayer
+        ? DailyChallengeManager.getSkinColorForPlayer()
+        : null;
+    this.player = new Player(spawn.x, spawn.y, skinColor);
 
     this.pellets = [];
     const m = this.maze;
@@ -167,16 +247,25 @@ class GameManager {
     }
 
     const mult = this.aiService.getDifficultyMultiplier();
-    const enemySpeed = cfg.speed * mult;
+    const levelSpeedMult = Math.min(1.45, 1 + (this.level - 1) * 0.042);
+    const enemySpeed = Math.min(
+      142,
+      cfg.speed * mult * levelSpeedMult
+    );
+    const behaviorTier = Math.min(3, Math.floor((this.level - 1) / 3));
+    const extraEnemies = Math.min(5, Math.floor((this.level - 1) / 2));
+    let enemyCount = cfg.enemies + extraEnemies;
+
     const excludeEnemies = excludeForPick.concat(
       this.powerups.map((pu) => ({ x: pu.x, y: pu.y }))
     );
     let openEnemies = this.maze.getOpenCells(excludeEnemies);
     openEnemies = this._shuffle(openEnemies);
     this.enemies = [];
-    for (let i = 0; i < cfg.enemies && i < openEnemies.length; i++) {
+    enemyCount = Math.min(enemyCount, openEnemies.length);
+    for (let i = 0; i < enemyCount; i++) {
       const ep = openEnemies[i];
-      this.enemies.push(new Enemy(ep.x, ep.y, enemySpeed));
+      this.enemies.push(new Enemy(ep.x, ep.y, enemySpeed, behaviorTier));
     }
 
     this.activeEffects = { speed: 0, invincible: 0 };
@@ -216,11 +305,13 @@ class GameManager {
         this.pelletsLeft,
         this.pelletsTotal,
         this.activeEffects,
-        true
+        true,
+        this._getCoins()
       );
       return;
     }
 
+    const invStart = this.activeEffects.invincible > 0;
     if (this.activeEffects.speed > 0) {
       this.activeEffects.speed = Math.max(0, this.activeEffects.speed - dt);
     }
@@ -231,12 +322,17 @@ class GameManager {
       );
     }
 
+    const ndt = invStart ? dt : this._nearMissAdjustedDt(dt);
+    if (invStart) {
+      this._nearMissBlend += (0 - this._nearMissBlend) * 16 * dt;
+    }
+
     const maze = this.maze;
     const player = this.player;
     const moveInput = this.input.getMoveVector(this.joystick);
 
     player.update(
-      dt,
+      ndt,
       moveInput,
       maze,
       this.activeEffects,
@@ -256,7 +352,14 @@ class GameManager {
     );
 
     for (const enemy of this.enemies) {
-      enemy.update(dt, player.x, player.y, maze);
+      enemy.update(
+        ndt,
+        player.x,
+        player.y,
+        maze,
+        player.vx,
+        player.vy
+      );
       enemy.checkHit(
         player.x,
         player.y,
@@ -269,7 +372,7 @@ class GameManager {
     }
 
     for (const pellet of this.pellets) {
-      pellet.update(dt);
+      pellet.update(ndt);
       const result = pellet.checkCollect(
         player.x,
         player.y,
@@ -279,6 +382,17 @@ class GameManager {
       );
       if (result) {
         this.score += 10;
+        const c = this._coinsPerPellet();
+        if (
+          typeof DailyChallengeManager !== "undefined" &&
+          DailyChallengeManager.addCoins
+        ) {
+          DailyChallengeManager.addCoins(c);
+        }
+        if (this.daily) {
+          this.daily.onPelletCollected();
+          this.daily.onScore(this.score);
+        }
         this.pelletsLeft--;
         if (typeof this.player.addCollectJuice === "function") {
           this.player.addCollectJuice();
@@ -290,7 +404,7 @@ class GameManager {
     }
 
     for (const powerup of this.powerups) {
-      powerup.update(dt);
+      powerup.update(ndt);
       const type = powerup.checkCollect(
         player.x,
         player.y,
@@ -304,7 +418,7 @@ class GameManager {
       }
     }
 
-    this.portal.update(dt);
+    this.portal.update(ndt);
     if (
       this.state === "playing" &&
       this.portal.checkEnter(player.x, player.y, player.r)
@@ -312,9 +426,9 @@ class GameManager {
       this._onLevelComplete();
     }
 
-    this.particles.update(dt);
+    this.particles.update(ndt);
     this.minimap.update(
-      dt,
+      ndt,
       maze,
       player.x,
       player.y,
@@ -330,7 +444,8 @@ class GameManager {
       this.pelletsLeft,
       this.pelletsTotal,
       this.activeEffects,
-      false
+      false,
+      this._getCoins()
     );
   }
 
@@ -362,6 +477,26 @@ class GameManager {
     this.particles.draw(ctx, 0, 0);
 
     ctx.restore();
+
+    if (
+      this.state === "playing" &&
+      this._nearMissBlend > 0.04 &&
+      !this.paused
+    ) {
+      const pulse = 0.82 + 0.18 * Math.sin(this._nearMissT * 5.5);
+      const alpha = this._nearMissBlend * 0.2 * pulse;
+      ctx.save();
+      const cx = w * 0.5;
+      const cy = (h + 46) * 0.5 - 8;
+      const rad = Math.max(w, h) * 0.52;
+      const g = ctx.createRadialGradient(cx, cy, rad * 0.28, cx, cy, rad);
+      g.addColorStop(0, "rgba(255, 235, 230, 0)");
+      g.addColorStop(0.55, "rgba(255, 130, 110, " + (alpha * 0.35).toFixed(3) + ")");
+      g.addColorStop(1, "rgba(28, 22, 38, " + (alpha * 0.55).toFixed(3) + ")");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    }
   }
 
   _onPlayerHit() {
@@ -374,7 +509,8 @@ class GameManager {
       this.pelletsLeft,
       this.pelletsTotal,
       this.activeEffects,
-      false
+      false,
+      this._getCoins()
     );
     if (this.lives <= 0) {
       this._gameOver();
@@ -385,6 +521,9 @@ class GameManager {
 
   _onLevelComplete() {
     if (this.state !== "playing") return;
+    if (this.daily) {
+      this.daily.onLevelComplete(this.difficulty);
+    }
     this.state = "levelcomplete";
     this.audio.sfxLevelUp();
     this._saveProgress();
@@ -394,6 +533,9 @@ class GameManager {
 
   _gameOver() {
     this.state = "gameover";
+    if (this.daily) {
+      this.daily.finalizeRun(this.score);
+    }
     localStorage.removeItem("bje_level");
     localStorage.removeItem("bje_score");
     this.hud.setFinalScore(this.score);
@@ -414,6 +556,9 @@ class GameManager {
   }
 
   restartGame() {
+    if (this.daily) {
+      this.daily.finalizeRun(this.score);
+    }
     this.score = 0;
     this.level = 1;
     this.lives = 3;
@@ -431,6 +576,10 @@ class GameManager {
     this.state = "start";
     this.paused = false;
     this.input.clearKeys();
+    if (this.daily) {
+      this.daily.finalizeRun(this.score);
+      this.daily.refreshStartUI();
+    }
     if (this.animFrame) {
       cancelAnimationFrame(this.animFrame);
       this.animFrame = null;

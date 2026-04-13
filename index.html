@@ -6,19 +6,40 @@
   <title>Blobby Jungle Escape</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
   <div id="startScreen">
-    <div id="saved-info" hidden></div>
-    <canvas id="preview-canvas" width="80" height="80"></canvas>
-    <button type="button" id="btn-easy">Easy</button>
-    <button type="button" id="btn-medium">Medium</button>
-    <button type="button" id="btn-hard">Hard</button>
-    <button type="button" id="btn-start">Start</button>
-    <p id="start-hint">WASD / arrows to move · P to pause</p>
+    <canvas id="start-bg-particles" class="start-bg-particles" aria-hidden="true"></canvas>
+    <div id="saved-info" class="start-saved" hidden></div>
+    <div class="start-inner">
+      <h1 class="start-title">Blobby Jungle Escape</h1>
+      <div class="start-character-wrap">
+        <div class="start-character-float">
+          <canvas id="preview-canvas" width="160" height="160"></canvas>
+        </div>
+      </div>
+      <section id="daily-challenges" class="daily-panel" aria-label="Daily challenges"></section>
+      <div class="start-diff-row" role="group" aria-label="Difficulty">
+        <button type="button" id="btn-easy">Easy</button>
+        <button type="button" id="btn-medium">Medium</button>
+        <button type="button" id="btn-hard">Hard</button>
+      </div>
+      <button type="button" id="btn-start" class="btn-start-wide">Start</button>
+      <button type="button" id="btn-shop" class="btn-shop">Colors shop</button>
+      <p id="start-hint">WASD / arrows to move · P to pause</p>
+    </div>
+  </div>
+  <div id="shop-modal" class="shop-modal hidden" aria-hidden="true">
+    <div class="shop-backdrop" id="shop-backdrop" role="presentation"></div>
+    <div class="shop-dialog" role="dialog" aria-labelledby="shop-title">
+      <h2 id="shop-title" class="shop-title">Character colors</h2>
+      <p id="shop-balance" class="shop-balance"></p>
+      <ul id="shop-list" class="shop-list"></ul>
+      <button type="button" id="shop-close" class="btn-start-wide">Close</button>
+    </div>
   </div>
   <div id="gameOverScreen">
     <div id="go-score"></div>
@@ -33,6 +54,7 @@
   <div id="hud">
     <span id="lives-display"></span>
     <span id="score-display"></span>
+    <span id="coin-display" class="hud-coins" title="Coins"></span>
     <span id="level-display"></span>
     <span id="pellets-display"></span>
     <span id="pause-badge" aria-live="polite"></span>
@@ -63,6 +85,8 @@
   <script src="js/aiService.js"></script>
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
+  <script src="js/streak.js"></script>
+  <script src="js/dailyChallenges.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 

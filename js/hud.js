@@ -5,11 +5,21 @@ class HUD {
     this.levelEl = document.getElementById("level-display");
     this.pelletsEl = document.getElementById("pellets-display");
     this.pauseBadge = document.getElementById("pause-badge");
+    this.coinsEl = document.getElementById("coin-display");
     this.powerupEl = document.getElementById("powerupHud");
     this.muteBtn = document.getElementById("muteBtn");
   }
 
-  update(lives, score, level, pelletsLeft, pelletsTotal, activeEffects, paused) {
+  update(
+    lives,
+    score,
+    level,
+    pelletsLeft,
+    pelletsTotal,
+    activeEffects,
+    paused,
+    coins
+  ) {
     const n = Math.max(0, lives);
     this.livesEl.innerHTML = "";
     for (let i = 0; i < n; i++) {
@@ -20,6 +30,11 @@ class HUD {
       this.livesEl.appendChild(h);
     }
     this.scoreEl.textContent = String(score);
+    if (this.coinsEl) {
+      const c =
+        typeof coins === "number" && !isNaN(coins) ? Math.max(0, coins) : 0;
+      this.coinsEl.textContent = "\u25C6 " + String(c);
+    }
     this.levelEl.textContent = "Lv " + String(level);
     const got = pelletsTotal - pelletsLeft;
     this.pelletsEl.textContent = got + " / " + pelletsTotal;

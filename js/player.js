@@ -1,5 +1,10 @@
 class Player {
-  constructor(x, y) {
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {string | null} colorOverride - equipped skin color; if null, random pastel
+   */
+  constructor(x, y, colorOverride) {
     this.x = x;
     this.y = y;
     this.spawnX = x;
@@ -9,7 +14,10 @@ class Player {
     this.r = 16;
     this.bobT = 0;
     this.eyeT = 0;
-    this.color = this._randomPastel();
+    this.color =
+      typeof colorOverride === "string" && colorOverride.length > 0
+        ? colorOverride
+        : this._randomPastel();
     this.respawnTimer = 0;
     this._juicePop = 0;
     this._accel = 11;
@@ -123,39 +131,54 @@ class Player {
     ctx.translate(-sx, -(sy + juiceY));
 
     ctx.beginPath();
-    ctx.ellipse(sx, sy + juiceY + this.r * 0.85, this.r * 0.35, this.r * 0.1, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(60,55,45,0.08)";
+    ctx.ellipse(
+      sx,
+      sy + juiceY + this.r * 0.85,
+      this.r * 0.38,
+      this.r * 0.11,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fillStyle = "rgba(55, 50, 45, 0.1)";
     ctx.fill();
 
+    const wRx =
+      1 + Math.sin(this.bobT * 0.95) * 0.045 + Math.sin(this.bobT * 1.4 + 0.5) * 0.02;
+    const wRy =
+      1 +
+      Math.sin(this.bobT * 0.95 + 1.1) * 0.05 +
+      Math.sin(this.bobT * 1.2) * 0.025;
+    const blobRot = Math.sin(this.bobT * 0.55) * 0.07;
+
     ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      const w = this.r * 0.05 * Math.sin(a * 3 + this.bobT * 0.65);
-      const px = sx + (this.r + w) * Math.cos(a);
-      const py = sy + juiceY + (this.r + w) * Math.sin(a);
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
+    ctx.ellipse(
+      sx,
+      sy + juiceY,
+      this.r * sxScale * wRx,
+      this.r * syScale * wRy,
+      blobRot,
+      0,
+      Math.PI * 2
+    );
     ctx.fillStyle = this.color;
     ctx.fill();
-    ctx.strokeStyle = "rgba(90,85,75,0.55)";
-    ctx.lineWidth = 1.25;
-    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = "rgba(95, 100, 105, 0.32)";
+    ctx.lineWidth = 1.35;
     ctx.stroke();
-    ctx.setLineDash([]);
 
-    const eyeOff = Math.sin(this.eyeT) * 0.8;
-    ctx.fillStyle = "rgba(55,50,48,0.85)";
+    const eyeOff = Math.sin(this.eyeT) * 0.65;
+    ctx.fillStyle = "#1a1a1a";
     ctx.beginPath();
-    ctx.arc(sx - 5, sy + juiceY - 2 + eyeOff, 2.2, 0, Math.PI * 2);
-    ctx.arc(sx + 5, sy + juiceY - 2 + eyeOff, 2.2, 0, Math.PI * 2);
+    ctx.arc(sx - 5, sy + juiceY - 2 + eyeOff, 2.4, 0, Math.PI * 2);
+    ctx.arc(sx + 5, sy + juiceY - 2 + eyeOff, 2.4, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.arc(sx, sy + juiceY + 4, 4, 0.15, Math.PI - 0.15);
-    ctx.strokeStyle = "rgba(55,50,48,0.65)";
-    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = "rgba(25, 25, 28, 0.8)";
+    ctx.lineWidth = 1.25;
+    ctx.lineCap = "round";
+    ctx.arc(sx, sy + juiceY + 4, 4.2, 0.18, Math.PI - 0.18);
     ctx.stroke();
 
     if (isInvincible) {

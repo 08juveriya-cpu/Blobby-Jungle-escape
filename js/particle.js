@@ -65,6 +65,23 @@ class ParticleSystem {
     }
   }
 
+  /** Tiny burst when an enemy passes very close (near-miss juice). */
+  spawnNearMiss(x, y) {
+    for (let i = 0; i < 10; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 18 + Math.random() * 38;
+      const vx = Math.cos(angle) * speed;
+      const vy = Math.sin(angle) * speed - 25;
+      const life = 0.22 + Math.random() * 0.2;
+      const r = 0.9 + Math.random() * 1.3;
+      const c =
+        Math.random() > 0.45
+          ? "rgba(255, 170, 160, 0.85)"
+          : "rgba(255, 255, 255, 0.75)";
+      this.particles.push(new Particle(x, y, vx, vy, c, life, r));
+    }
+  }
+
   spawnHit(x, y) {
     for (let i = 0; i < 16; i++) {
       const angle = Math.random() * Math.PI * 2;

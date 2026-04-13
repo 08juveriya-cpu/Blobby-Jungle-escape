@@ -1,19 +1,20 @@
 /**
- * Soft pastel "blob" enemy with smooth patrol / chase steering and wall sliding.
- * World position (x, y) is authoritative; rendering applies camera offset elsewhere.
+ * Soft pastel blob enemy. Behavior tier rises every 3 levels (patrol → sharper chase
+ * → intercept player motion → faster roam + stronger chase).
  */
 class Enemy {
-  constructor(x, y, speed) {
+  constructor(x, y, speed, behaviorTier = 0) {
     this.x = x;
     this.y = y;
     this.speed = speed;
+    this.behaviorTier = Math.max(0, Math.min(3, behaviorTier));
     this.r = 15;
     this.vx = 0;
     this.vy = 0;
     this.bobT = Math.random() * Math.PI * 2;
     this.eyeT = Math.random() * Math.PI * 2;
     this.color = this._softPastel();
-    this.chaseRange = 48 * 6;
+    this.chaseRange = 48 * 6 * (1 + this.behaviorTier * 0.1);
     this._desiredVx = 0;
     this._desiredVy = 0;
     this._rethink = 0;
@@ -29,22 +30,42 @@ class Enemy {
     return colors[Math.floor(Math.random() * colors.length)];
   }
 
-  update(dt, playerX, playerY, maze) {
+  update(dt, playerX, playerY, maze, playerVx, playerVy) {
+    const pvx = playerVx != null ? playerVx : 0;
+    const pvy = playerVy != null ? playerVy : 0;
+
     this.bobT += dt * 1.9;
     this.eyeT += dt * 1.15;
     this._rethink -= dt;
 
+    const tier = this.behaviorTier;
+    const chaseMul = 1 + tier * 0.07;
+    const patrolMul = tier >= 3 ? 0.68 : 0.55;
+
     if (this._rethink <= 0) {
-      this._rethink = 0.35 + Math.random() * 0.25;
+      const thinkBase = tier >= 1 ? 0.24 : 0.35;
+      this._rethink = thinkBase + Math.random() * (tier >= 1 ? 0.18 : 0.25);
       const dist = Math.hypot(playerX - this.x, playerY - this.y);
       if (dist < this.chaseRange && dist > 1) {
-        const inv = 1 / dist;
-        this._desiredVx = (playerX - this.x) * inv * this.speed;
-        this._desiredVy = (playerY - this.y) * inv * this.speed;
+        let tx = playerX - this.x;
+        let ty = playerY - this.y;
+        if (tier >= 2) {
+          const lead = 0.32;
+          const ix = playerX + pvx * 0.35 - this.x;
+          const iy = playerY + pvy * 0.35 - this.y;
+          tx = tx * (1 - lead) + ix * lead;
+          ty = ty * (1 - lead) + iy * lead;
+        }
+        const d2 = Math.hypot(tx, ty);
+        if (d2 > 0.5) {
+          const inv = 1 / d2;
+          this._desiredVx = tx * inv * this.speed * chaseMul;
+          this._desiredVy = ty * inv * this.speed * chaseMul;
+        }
       } else {
         const ang = Math.random() * Math.PI * 2;
-        this._desiredVx = Math.cos(ang) * this.speed * 0.55;
-        this._desiredVy = Math.sin(ang) * this.speed * 0.55;
+        this._desiredVx = Math.cos(ang) * this.speed * patrolMul;
+        this._desiredVy = Math.sin(ang) * this.speed * patrolMul;
       }
     }
 

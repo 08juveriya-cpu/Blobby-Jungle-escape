@@ -87,6 +87,20 @@ class AudioManager {
   hookPowerupPulse() {
     this.sfxPowerup();
   }
+
+  /** Soft UI tick for menus and buttons (respects mute). */
+  sfxUIClick() {
+    this.playTone(520, 0.045, "triangle", 0.12);
+    setTimeout(() => {
+      this.playTone(380, 0.035, "sine", 0.08);
+    }, 22);
+  }
+
+  /** Quiet tension tick when an enemy skims close (near-miss). */
+  sfxNearMiss() {
+    this.playTone(198, 0.055, "sine", 0.055);
+    this.playTone(245, 0.04, "triangle", 0.035);
+  }
 }
 
 window.AudioManager = AudioManager;
