@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Blobby Jungle Escape</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="startScreen">
+    <div id="saved-info" hidden></div>
+    <canvas id="preview-canvas" width="80" height="80"></canvas>
+    <button type="button" id="btn-easy">Easy</button>
+    <button type="button" id="btn-medium">Medium</button>
+    <button type="button" id="btn-hard">Hard</button>
+    <button type="button" id="btn-start">Start</button>
+    <p id="start-hint">WASD / arrows to move · P to pause</p>
+  </div>
+  <div id="gameOverScreen">
+    <div id="go-score"></div>
+    <button type="button" id="btn-restart">Restart</button>
+    <button type="button" id="btn-menu-go">Menu</button>
+  </div>
+  <div id="levelCompleteScreen">
+    <div id="lc-score"></div>
+    <button type="button" id="btn-next">Next level</button>
+    <button type="button" id="btn-menu-lc">Menu</button>
+  </div>
+  <div id="hud">
+    <span id="lives-display"></span>
+    <span id="score-display"></span>
+    <span id="level-display"></span>
+    <span id="pellets-display"></span>
+    <span id="pause-badge" aria-live="polite"></span>
+  </div>
+  <div id="minimap">
+    <canvas id="minimapCanvas"></canvas>
+  </div>
+  <div id="joystickArea">
+    <div id="joystickBase">
+      <div id="joystickKnob"></div>
+    </div>
+  </div>
+  <div id="powerupHud"></div>
+  <button type="button" id="muteBtn" aria-label="Mute"></button>
+
+  <script src="js/audio.js"></script>
+  <script src="js/maze.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/particle.js"></script>
+  <script src="js/pellet.js"></script>
+  <script src="js/portal.js"></script>
+  <script src="js/powerup.js"></script>
+  <script src="js/joystick.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/enemy.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/minimap.js"></script>
+  <script src="js/aiService.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+
+</body>
+</html>
